@@ -75,13 +75,10 @@ sed -i 's/^##INFO=<ID=gnomAD_het,Number=.,Type=String/##INFO=<ID=gnomAD_het,Numb
 sed -i 's/^##INFO=<ID=gnomAD_homhem,Number=.,Type=String/##INFO=<ID=gnomAD_homhem,Number=.,Type=Float/g' ${FLAGS_base}/VEP/float_${vcf::-3}
 
 
-bcftools filter -i FILTER="PASS" ${FLAGS_base}/VEP/float_${vcf::-3}
-bcftools filter -e 'DP<5 || QUAL<10 || gnomAD_het>2000 || gnomAD_homhem>1' -Oz -o 
-
+bcftools filter -i'FILTER="PASS"' ${FLAGS_base}/VEP/float_${vcf::-3} | bcftools filter -e 'DP<5 || QUAL<10 || gnomAD_het>2000 || gnomAD_homhem>1' -Oz -o ${FLAGS_base}/VEP/FILT_${vcf::-3}
 
 bcftools +split-vep -f '%CHROM %POS %CSQ\n' -A tab -d ${FLAGS_base}/VEP/float_${vcf::-3} > noHead_${xlsx}
 bcftools +split-vep ${FLAGS_base}/VEP/float_${vcf::-3} -l | awk '{print $2}' | tr "\n" "\t" > header
-echo -e "\n" >> header
 cat header noHead_${xlsx} > $xlsx
 
 #rm ${FLAGS_base}/VEP/${vcf} ${FLAGS_base}/VEP/${vcf}.tbi header 
@@ -108,7 +105,7 @@ $ANNOTSV/bin/AnnotSV -SvinputFile ${FLAGS_sv_vcf} \
 	-candidateSnvIndelFiles ${FLAGS_small_vcf} \
 	-snvIndelFiles ${FLAGS_small_vcf}
 
-$kNOTANNOTSV --genomeBuild hg38 \
+$KNOTANNOTSV --genomeBuild hg38 \
     --annotSVfile ${FLAGS_base}/ANNOTSV/*.annotated.tsv \
     --outDir ${FLAGS_base}/ANNOTSV/ \
     --configFile $ANNOTSV_YAML

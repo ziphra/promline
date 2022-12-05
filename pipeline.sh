@@ -5,9 +5,11 @@
 #
 #  Created by Euphrasie Servant on 17/06/2022.
 #
-
+basesh=`dirname $0`
 . ~/miniconda3/etc/profile.d/conda.sh
-. /media/euphrasie/Alienware_May202/Promethion/promline/pipeline.config
+pipeconfig=`realpath ${basesh}/pipeline.config`
+. $pipeconfig
+
 
 conda activate promline
 echo ""
@@ -21,11 +23,32 @@ echo ""
 echo ""
 mkdir -p $BASE
 
+TORCH=$(cat <<EOF
+import torch
+
+print(torch.cuda.is_available())
+EOF
+)
+
+GPU=`python -c "$TORCH"`
+ 
+if [ $GPU = "True" ]
+	then 
+	echo "GPU(s) available, and will be use with Guppy, Dorado, and PMDV"
+else
+	echo "No GPU available"
+fi
+
+echo $0
 
 ##### 0 FAST5 to POD5 #####
 
-
-if [[ ! -d "$FLAGS_pod5" || ! "$(ls -A ${FLAGS_pod5})" ]] 
+if [[ "$FLAGS_pod5" = "" ]] 
+then 
+    echo ""
+    echo "=========== no FAST5 to POD5 conversion============"
+    echo ""   
+elif [[ ! -d "$FLAGS_pod5" || ! "$(ls -A ${FLAGS_pod5})" ]] 
 then
 echo ""
 echo "=========== FAST5 to POD5 ============"
@@ -67,7 +90,7 @@ then
     -c ${MODEL_GUPPY} \
     --device 'auto' \
     --compress_fastq \
-    --num_callers ${THREADS} \
+    --num_callers ${FLAGS_threads} \
     --chunk_size 1000 \
     --gpu_runners_per_device 4 \
     --chunks_per_runner 512 \
@@ -109,7 +132,7 @@ then
 
     mkdir $MMI
 
-    time minimap2 -t $THREADS \
+    time minimap2 -t $FLAGS_threads \
     -ax map-ont \
     $REFMMI \
     --MD \
@@ -150,7 +173,7 @@ then
         FASTQ = "$FASTQSFOLD"
     fi
 
-    time minimap2 -t $THREADS \
+    time minimap2 -t $FLAGS_threads \
     -ax map-ont \
     $REFMMI \
     --MD \
@@ -209,21 +232,20 @@ echo "SV with sniffles"
 echo ""
 
 mkdir -p $BASE/vc/sniffles
-
 time sniffles -i $BAM \
 	--vcf $VCF_SNF \
-	--tandem-repeats $0/human_GRCh38_no_alt_analysis_set.trf.bed \
+	--tandem-repeats ${basesh}/human_GRCh38_no_alt_analysis_set.trf.bed \
 	--reference $REF \
     --long-del-coverage 5 \
     --long-dup-coverage 0.5 \
-	-t $THREADS 
+	-t $FLAGS_threads 
 
 time sniffles -i $BAM \
 	--vcf $VCF_SNF \
-	--tandem-repeats $0/human_GRCh38_no_alt_analysis_set.trf.bed \
+	--tandem-repeats ${basesh}/human_GRCh38_no_alt_analysis_set.trf.bed \
 	--reference $REF \
     --no-qc \
-	-t $THREADS 
+	-t $FLAGS_threads 
 
 
 # write BND mates
@@ -266,7 +288,7 @@ if [ -s BND.txt ]; then echo "BNDs in BND.txt"; fi
 cat $BASE/vc/sniffles/${FLAGS_sample}_sniffles.vcf BND.txt > unsorted.txt
 grep -v '#' unsorted.txt | sort -k1,1V -k2,2n > sorted.txt
 grep '#' unsorted.txt > header.txt
-echo '##BND mates lines added' >> header.txt
+#echo '##BND mates lines added' >> header.txt
 cat header.txt sorted.txt > $BASE/vc/sniffles/${FLAGS_sample}_sniffles_BND.vcf 
 
 if [ -s $BASE/vc/sniffles/${FLAGS_sample}_sniffles_BND.vcf  ]; then echo "BND mating succesful."; else echo "WARNING: BND mating not successful";fi
@@ -295,38 +317,73 @@ tabix ${vcf}_raw.norm.vcf.gz
 
 if [[ "$FLAGS_snp_caller" = "pmdv" || "$FLAGS_snp_caller" = "all" ]]
 then 
-    
-    echo ""
-    echo ""
-    echo "SMALL VARIANTS with PMDV"
-    echo ""
+    if [[ $GPU = "True" ]]
+    then 
+        echo ""
+        echo ""
+        echo "SMALL VARIANTS with PMDV - GPU"
+        echo "" 
 
-    ## Create local directory structure
-    mkdir -p "${OUTPUT_DIR_PMDV}"
-    BAMDIR=`dirname $BAM`
-    echo $BAMDIR
+        ## Create local directory structure
+        mkdir -p "${OUTPUT_DIR_PMDV}"
+        BAMDIR=`dirname $BAM`
+        echo $BAMDIR
 
-    docker run --ipc=host \
-	    --gpus all \
-	    -v "${BAMDIR}":"${BAMDIR}" \
-	    -v "${OUTPUT_DIR_PMDV}":"${OUTPUT_DIR_PMDV}" \
-	    -v "${REF}":"${REF}" \
-	    kishwars/pepper_deepvariant:r0.8-gpu \
-	    run_pepper_margin_deepvariant call_variant \
-	    -o "${OUTPUT_DIR_PMDV}" \
-	    -b "${BAM}" \
-	    -f "${REF}" \
-	    -p "${PMDV_PREFIX}" \
-	    -t "{THREADS}" \
-	    -g \
-	    ${MODEL_PMDV}
+        docker run --ipc=host \
+	        --gpus all \
+	        -v "${BAMDIR}":"${BAMDIR}" \
+	        -v "${OUTPUT_DIR_PMDV}":"${OUTPUT_DIR_PMDV}" \
+	        -v "${REF}":"${REF}" \
+	        kishwars/pepper_deepvariant:r0.8-gpu \
+	        run_pepper_margin_deepvariant call_variant \
+	        -o "${OUTPUT_DIR_PMDV}" \
+	        -b "${BAM}" \
+	        -f "${REF}" \
+	        -p "${PMDV_PREFIX}" \
+	        -t "${FLAGS_threads}" \
+	        -g \
+	        ${MODEL_PMDV}
 
-    echo "remove refcalls with bcftools..."
-    echo ""
+        echo "remove refcalls with bcftools..."
+        echo ""
 
-    bcftools filter -e'FILTER="refCall"' ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}.vcf.gz -o ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz -Oz
-    tabix ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz
-    vtf ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz
+        bcftools filter -e'FILTER="refCall"' ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}.vcf.gz -o ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz -Oz
+        tabix ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz
+        vtf ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz
+
+    elif [[ $GPU = "False" ]]
+    then 
+        echo ""
+        echo ""
+        echo "SMALL VARIANTS with PMDV - no GPU"
+        echo "${MODEL_PMDV}"
+
+        ## Create local directory structure
+        mkdir -p "${OUTPUT_DIR_PMDV}"
+        BAMDIR=`dirname $BAM`
+        echo $BAMDIR
+        echo 
+        docker run --ipc=host \
+	        -v "${BAMDIR}":"${BAMDIR}" \
+	        -v "${OUTPUT_DIR_PMDV}":"${OUTPUT_DIR_PMDV}" \
+	        -v "${REF}":"${REF}" \
+	        kishwars/pepper_deepvariant:r0.8 \
+	        run_pepper_margin_deepvariant call_variant \
+	        -o "${OUTPUT_DIR_PMDV}" \
+	        -b "${BAM}" \
+	        -f "${REF}" \
+	        -p "${PMDV_PREFIX}" \
+	        -t "{FLAGS_threads}" \
+	        -g \
+	        "${MODEL_PMDV}"
+
+        echo "remove refcalls with bcftools..."
+        echo ""
+
+        bcftools filter -e'FILTER="refCall"' ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}.vcf.gz -o ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz -Oz
+        tabix ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz
+        vtf ${OUTPUT_DIR_PMDV}/${PMDV_PREFIX}_noRC.vcf.gz
+    fi
 fi
 
 ### clair3 ###
@@ -343,20 +400,20 @@ then
     run_clair3.sh \
 	    --bam_fn=${BAM} \
 	    --ref_fn=${REF} \
-	    --threads=${THREADS} \
+	    --threads=${FLAGS_threads} \
 	    --platform="ont" \
 	    --model_path=${CONDA_PREFIX}/bin/models/${MODEL_CLAIR} \
 	    --output=${CLAIR_OUT} \
 	    --remove_intermediate_dir
 
-    python /home/euphrasie/miniconda3/envs/promline/bin/clair3.py SwitchZygosityBasedOnSVCalls \
-      --bam_fn ${BAM} \
-      --clair3_vcf_input ${CLAIR_OUT}/merge_output.vcf.gz \
-      --sv_vcf_input $VCF_SNF \
-      --vcf_output ${CLAIR_OUT}_merge_output_switch.vcf \
-      --threads ${THREADS}
+    # python /home/euphrasie/miniconda3/envs/promline/bin/clair3.py SwitchZygosityBasedOnSVCalls \
+    #   --bam_fn ${BAM} \
+    #   --clair3_vcf_input ${CLAIR_OUT}/merge_output.vcf.gz \
+    #   --sv_vcf_input $VCF_SNF \
+    #   --vcf_output ${CLAIR_OUT}_merge_output_switch.vcf \
+    #   --threads ${FLAGS_threads}
 
-    vtf ${CLAIR_OUT}_merge_output.vcf
+    vtf ${CLAIR_OUT}/merge_output.vcf
 fi
 
 

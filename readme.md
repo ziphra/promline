@@ -1,4 +1,11 @@
 # Promline
+
+## recquirements 
+- a proper installation of miniconda3
+- Guppy 6
+- Dorado, only if basecalling with Dorado wanted.
+- PEPPER-Margin-DeepVariant Docker install, r0.8 or r0.8-gpu if GPU available.
+
 ## install 
 - git clone this repository
     ```
@@ -49,6 +56,8 @@ promline.sh -w ./workingdirectory \
 ```
 
 `2>&1 | tee log.txt` allow to store the pipeline log to `log.txt`.
+
+Some tools are using GPUs when available.
 
 ## Promline
 

@@ -9,7 +9,11 @@
 . ~/miniconda3/etc/profile.d/conda.sh
 
 # source shflags
-. /home/euphrasie/bioprog/shflags-1.2.3/shflags
+#. /home/euphrasie/bioprog/shflags-1.2.3/shflags
+basesh=`dirname $0`
+pipeshflag=`realpath ${basesh}/shflags/shflags`
+. $pipeshflag
+
 
 # define command-line string flag
 DEFINE_string 'base' '.' 'working directory' 'w'
@@ -95,7 +99,7 @@ fi
 if [[ "$FLAGS_model" = "r9" ]]
 then 
     MODEL_CLAIR="r941_prom_sup_g5014"
-    MODEL_PMDV="ont_r9_guppy5_sup"
+    MODEL_PMDV="--ont_r9_guppy5_sup"
     MODEL_GUPPY="dna_r9.4.1_450bps_sup_prom.cfg"
     MODEL_DORADO="dna_r9.4.1_e8_sup@v3.3"
     echo ""
@@ -135,5 +139,4 @@ else
     echo "This caller '${FLAGS_snp_caller}' is not supported. Supported callers -c: pmdv or clair3 or all (both)"
     exit 1
 fi
-
 
