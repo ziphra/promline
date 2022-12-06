@@ -76,27 +76,49 @@ echo ""
 ## GUPPY
 if [[ "$FLAGS_basecalling" = "guppy" || "$FLAGS_basecalling" = "all" ]]
 then 
+    if [[ $GPU = "True" ]]
+    then
+        echo "GUPPY 6"
+        echo ""
 
-    echo "GUPPY 6"
-    echo ""
+        mkdir $GUPPY
 
-    mkdir $GUPPY
+        time guppy_basecaller \
+        -i $FAST5 \
+        -s $GUPPY \
+        --records_per_fastq 0 \
+        -r \
+        -c ${MODEL_GUPPY} \
+        --device 'auto' \
+        --compress_fastq \
+        --num_callers ${FLAGS_threads} \
+        --chunk_size 1000 \
+        --gpu_runners_per_device 4 \
+        --chunks_per_runner 512 \
+        --disable_pings
 
-    time guppy_basecaller \
-    -i $FAST5 \
-    -s $GUPPY \
-    --records_per_fastq 0 \
-    -r \
-    -c ${MODEL_GUPPY} \
-    --device 'auto' \
-    --compress_fastq \
-    --num_callers ${FLAGS_threads} \
-    --chunk_size 1000 \
-    --gpu_runners_per_device 4 \
-    --chunks_per_runner 512 \
-    --disable_pings
+        cat $GUPPY/pass/* > $FASTQ
+
+    if [[ $GPU = "True" ]]
+    then
+        echo "GUPPY 6"
+        echo ""
+
+        mkdir $GUPPY
+
+        time guppy_basecaller \
+        -i $FAST5 \
+        -s $GUPPY \
+        --records_per_fastq 0 \
+        -r \
+        -c ${MODEL_GUPPY} \
+        --compress_fastq \
+        --num_callers ${FLAGS_threads} \
+        --disable_pings
+
+        cat $GUPPY/pass/* > $FASTQ
+    fi
     
-    cat $GUPPY/pass/* > $FASTQ
 fi
 
 ## DORADO
@@ -233,7 +255,7 @@ echo ""
 
 mkdir -p $BASE/vc/sniffles
 time sniffles -i $BAM \
-	--vcf $VCF_SNF \
+	--vcf noQC_${VCF_SNF} \
 	--tandem-repeats ${basesh}/human_GRCh38_no_alt_analysis_set.trf.bed \
 	--reference $REF \
     --long-del-coverage 5 \

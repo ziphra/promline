@@ -22,12 +22,12 @@
 - Create a `conda env` from `promline.yml`
     ```
     cd promline
-    conda env create -f environment.yml
+    conda env create -f promline.yml
     ```
 - Make the script executable:
     ```
     chmod +x promline.sh
-    ```
+    ``` 
 
 ## run the pipeline
 ```
@@ -49,7 +49,7 @@ flags:
 
 ```
 
-Run as: 
+Run as, if executable: 
 ```
 promline.sh -w ./workingdirectory \
     -s samplename \
@@ -66,6 +66,7 @@ promline.sh -w ./workingdirectory \
 
 Some tools are using GPUs when available.
 
+or as `bash promline.sh ...`.
 ## Promline
 
 ### Conversion to pod5 `-f -p`
