@@ -99,7 +99,7 @@ then
 
         cat $GUPPY/pass/* > $FASTQ
 
-    elif [[ $GPU = "False" ]]
+    elif [[ $GPU = "True" ]]
     then
         echo "GUPPY 6"
         echo ""
