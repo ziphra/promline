@@ -159,7 +159,7 @@ then
     $REFMMI \
     --MD \
     -Y \
-    $FASTQ | samtools sort -T '/media/euphrasie/DATA/tmp' -o $BAM 
+    $FASTQ | samtools sort -o $BAM 
 
     samtools index $BAM
 fi
