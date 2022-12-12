@@ -39,3 +39,17 @@ promline -w /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion \
 -b guppy \
 -m r9 \
 -t 40 | tee Promethion_SQKLSK110_1411_17102022/log.txt
+
+
+promline -w /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion \
+-s "6622CY001026_dell" \
+-r /media/eservant/HDD_12To_3/ref/hg38_exclusion/GRCh38.p13.GRC_exclusions_T2Tv2.fa \
+-f /media/eservant/Expansion/Promethion_SQKLSK110_fusion \
+-p /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion/pod5 \
+-c all \
+-b all \
+-m r9 \
+-t 40 | tee Promethion_SQKLSK110_1411_17102022/log.txt
+
+
+promline -w /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion -s "6622CY001026_dell" -r /media/eservant/HDD_12To_3/ref/hg38_exclusion/GRCh38.p13.GRC_exclusions_T2Tv2.fa -f /media/eservant/Expansion/Promethion_SQKLSK110_fusion -p /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion/pod5 -c all -b all -m r9 -t 40 | tee /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion/log.txt
