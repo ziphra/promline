@@ -131,7 +131,7 @@ then
 
     mkdir ${BASE}/dorado/
 
-    time ${dorado}/bin/dorado basecaller -b 256 ${dorado}/${MODEL_DORADO} $FLAGS_pod5/ | samtools view -Sh -@ 6 - > $DORADOBAM
+    time ${dorado}/bin/dorado basecaller -b 512 ${dorado}/${MODEL_DORADO} $FLAGS_pod5/ | samtools view -Sh -@ 6 - > $DORADOBAM
 fi
 
 if [[ "$FLAGS_basecalling" = "none" ]]
@@ -255,7 +255,7 @@ echo ""
 
 mkdir -p $BASE/vc/sniffles
 time sniffles -i $BAM \
-	--vcf noQC_${VCF_SNF} \
+	--vcf $VCF_SNF \
 	--tandem-repeats ${basesh}/human_GRCh38_no_alt_analysis_set.trf.bed \
 	--reference $REF \
     --long-del-coverage 5 \
@@ -263,7 +263,7 @@ time sniffles -i $BAM \
 	-t $FLAGS_threads 
 
 time sniffles -i $BAM \
-	--vcf $VCF_SNF \
+	--vcf $NOQC_VCF_SNF \
 	--tandem-repeats ${basesh}/human_GRCh38_no_alt_analysis_set.trf.bed \
 	--reference $REF \
     --no-qc \
