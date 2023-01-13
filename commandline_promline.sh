@@ -52,4 +52,10 @@ promline -w /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion \
 -t 40 | tee Promethion_SQKLSK110_1411_17102022/log.txt
 
 
-promline -w /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion -s "6622CY001026_dell" -r /media/eservant/HDD_12To_3/ref/hg38_exclusion/GRCh38.p13.GRC_exclusions_T2Tv2.fa -f /media/eservant/Expansion/Promethion_SQKLSK110_fusion -p /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion/pod5 -c all -b all -m r9 -t 40 | tee /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion/log.txt
+
+promline -w /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion -s "6622CY001026_dell" -r /media/eservant/HDD_12To_3/ref/hg38_exclusion/GRCh38.p13.GRC_exclusions_T2Tv2.fa -f /media/eservant/Expansion/Promethion_SQKLSK110_fusion -p /media/eservant/HDD_12To_3/Promethion/Promethion_SQKLSK110_fusion/pod5 -c all -b all -m r9 -t 40 | tee Promethion_SQKLSK110_fusion/log.txt
+
+
+
+
+bash ../Promethion/promline/pipeline.sh -w /media/euphrasie/Alienware_May202/Minion/run123 -s "minion123" -r /media/euphrasie/DATA/reference_genome/hg38_exclusion/GRCh38.p13.GRC_exclusions_T2Tv2.fa -f /media/euphrasie/DATA/Data/minion_run123/fast5 -p /media/euphrasie/DATA/Data/minion_run123/pod5 -c clair3 -b guppy -m r9 -t 16 -M | tee /media/euphrasie/Alienware_May202/Minion/run123/log.txt

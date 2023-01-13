@@ -3,7 +3,7 @@
 ## recquirements 
 - a proper installation of miniconda3 (`~/miniconda3`)
 - Guppy 6, see <https://community.nanoporetech.com/> for installation process.
-- [Dorado](https://github.com/nanoporetech/dorado), only if basecalling with Dorado wanted.
+- [Dorado](https://github.com/nanoporetech/dorado), only if basecalling with Dorado wanted. Dorado should be accessible in the PATH. Model folders should be in the executable same directory.
 - [PEPPER-Margin-DeepVariant]() Docker install, r0.8 or r0.8-gpu if GPU available and if PMDV calling wanted. Otherwise, calling with Clair3 is available trough the conda environment.
 - Docker should run without sudo. To do so: 
   ```

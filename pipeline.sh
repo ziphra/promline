@@ -72,6 +72,7 @@ echo "=========== Basecalling for ${FLAGS_sample} ============"
 echo ""
 echo ""
 
+echo $FLAGS_threads
 
 ## GUPPY
 if [[ "$FLAGS_basecalling" = "guppy" || "$FLAGS_basecalling" = "all" ]]
@@ -99,7 +100,7 @@ then
 
         cat $GUPPY/pass/* > $FASTQ
 
-    elif [[ $GPU = "True" ]]
+    elif [[ $GPU = "False" ]]
     then
         echo "GUPPY 6"
         echo ""
@@ -121,18 +122,36 @@ then
     
 fi
 
+
+fsam_t=$(($FLAGS_threads/4))
+isam_t=$(printf "%.0f" "$fsam_t")
+
 ## DORADO
 
-if [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" ]]
-then 
+if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]
+    then
+    echo ""
+    echo "=========== DORADO MODIFIED BASES ==========="
+    echo ""
+    echo $isam_t
+    mkdir ${BASE}/dorado/
+
+    time dorado basecaller -r 4 ${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${MODEL_DORADO_MOD}  | samtools view -bSh -@ isam_t - > $DORADOBAM
+
+elif [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" ]] && [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]]
+    then 
     echo ""
     echo "=========== DORADO ==========="
     echo ""
 
     mkdir ${BASE}/dorado/
 
-    time ${dorado}/bin/dorado basecaller -b 512 ${dorado}/${MODEL_DORADO} $FLAGS_pod5/ | samtools view -Sh -@ 6 - > $DORADOBAM
-fi
+    time dorado basecaller -r 4 -b 512 ${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
+
+fi 
+
+
+
 
 if [[ "$FLAGS_basecalling" = "none" ]]
 then 
@@ -144,7 +163,7 @@ fi
 
 ##### 2 MAPPING MMI ######
 
-## MMI 
+## MMI
 
 if [[ "$FLAGS_basecalling" = "guppy" || "$FLAGS_basecalling" = "all" ]]
 then 
@@ -159,7 +178,7 @@ then
     $REFMMI \
     --MD \
     -Y \
-    $FASTQ | samtools sort -o $BAM 
+    $FASTQ | samtools sort -@ $isam_t -o $BAM 
 
     samtools index $BAM
 fi
@@ -167,13 +186,13 @@ fi
 
 ## 2 MMI DORADO
 
-if [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" ]]
+if [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" || $FLAGS_modified -eq ${FLAGS_TRUE} ]]
 then
     echo ""
     echo "=========== MMI DORADO  ============"
     echo ""
 
-    samtools bam2fq $DORADOBAM | $minimap2 -t 10 -ax map-ont --MD $REFMMI - | samtools sort -@ 4 -o $DORADOMMI
+    samtools bam2fq $DORADOBAM | $minimap2 -t 10 -ax map-ont --MD $REFMMI - | samtools sort -@ $isam_t -o $DORADOMMI
 
     samtools index $DORADOMMI
 fi
@@ -200,7 +219,7 @@ then
     $REFMMI \
     --MD \
     -Y \
-    $FASTQ | samtools sort -o $BAM 
+    $FASTQ | samtools sort -@ $isam_t -o $BAM 
 
     samtools index $BAM
 fi
