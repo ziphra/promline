@@ -9,7 +9,6 @@
 . ~/miniconda3/etc/profile.d/conda.sh
 
 # source shflags
-#. /home/euphrasie/bioprog/shflags-1.2.3/shflags
 basesh=`dirname $0`
 pipeshflag=`realpath ${basesh}/shflags/shflags`
 . $pipeshflag
@@ -23,7 +22,7 @@ DEFINE_string 'fast5' '' 'directory containing raw fast5' 'f'
 DEFINE_string 'pod5' '' 'directory for  fast5 to pod5 conversion output or already containing pod5' 'p'
 DEFINE_string 'fastqs' '' 'basecalling directory from guppy, in case of real time basecalling during sequencing. This pipeline will only use pass reads. The sequencing summary should be in this directory. If one fastq file is provided, instead of a guppy basecalling directory, a copy of the sequencing summary should be placed in the base directory (-w)' 'q'
 DEFINE_string 'snp_caller' 'clair3' 'snp caller: either pmdv, clair3 or all' 'c'
-DEFINE_string 'basecalling' 'guppy' 'basecaller: either guppy, dorado all (meaning both) or none (meaning no basecalling, and fastqs are provided in path defined by -q ' 'b'
+DEFINE_boolean 'basecalling' true 'basecalling' 'b'
 DEFINE_boolean 'modified' false 'modified bases calling' 'M'
 DEFINE_string 'model' 'r9' 'flowcell and basecalling model: either r9 or r10' 'm'
 DEFINE_string 'threads' '' 'max number of threads to use' 't'
@@ -39,10 +38,6 @@ echo  ${FLAGS_version}
 # version
 if [ ${FLAGS_version} -eq ${FLAGS_TRUE} ]
 then 
-    echo "" 
-    echo "guppy basecaller version:"
-    guppy_basecaller --version
-    echo ""
     echo ""
     echo "minimap2:"
     minimap2 --v 
@@ -78,18 +73,6 @@ fi
 
 
 
-# basecaller
-if [[ "$FLAGS_basecalling" = "guppy" ||  "$FLAGS_basecalling" = "dorado" ||  "$FLAGS_basecalling" = "all" || "$FLAGS_basecalling" = "none" ]]
-then 
-    echo "" 
-else
-    echo ""
-    echo "ERROR: Please set a supported basecaller"
-    echo ""
-    exit 1
-fi
-
-
 if [ -z "$FLAGS_ref" ]
 then 
     echo "" 
@@ -103,20 +86,18 @@ if [[ "$FLAGS_model" = "r9" ]]
 then 
     MODEL_CLAIR="r941_prom_sup_g5014"
     MODEL_PMDV="--ont_r9_guppy5_sup"
-    MODEL_GUPPY="dna_r9.4.1_450bps_sup_prom.cfg"
-    MODEL_DORADO="dna_r9.4.1_e8_sup@v3.3"
-    MODEL_DORADO_MOD="dna_r9.4.1_e8_sup@v3.4_5mCG@v0"
+    MODEL_DORADO="/home/euphrasie/bioprog/dorado-0.1.1+eb48766-Linux/bin/dna_r9.4.1_e8_sup@v3.3"
+    MODEL_DORADO_MOD="/home/euphrasie/bioprog/dorado-0.1.1+eb48766-Linux/bin/dna_r9.4.1_e8_sup@v3.4_5mCG@v0"
     echo ""
-    echo -e "guppy model: $MODEL_GUPPY \ndorado model: $MODEL_DORADO \nPMDV model: $MODEL_PMDV \nClair3 model: $MODEL_CLAIR"
+    echo -e "\ndorado model: $MODEL_DORADO \nPMDV model: $MODEL_PMDV \nClair3 model: $MODEL_CLAIR"
 elif [[ "$FLAGS_model" = "r10" ]]
 then 
     MODEL_CLAIR="r1041_e82_400bps_fast_g632"
     MODEL_PMDV="--ont_r10_q20"
-    MODEL_GUPPY="dna_r10.4.1_e8.2_400bps_hac_prom.cfg"
     MODEL_DORADO="dna_r10.4.1_e8.2_400bps_sup@v3.5.2"
     MODEL_DORADO_MOD="dna_r10.4.1_e8.2_400bps_sup@v4.0.0_5mCG_5hmCG@v2"
     echo ""
-    echo -e "guppy model: $MODEL_GUPPY \ndorado model: $MODEL_DORADO \nPMDV model: $MODEL_PMDV \nClair3 model: $MODEL_CLAIR"
+    echo -e "\ndorado model: $MODEL_DORADO \nPMDV model: $MODEL_PMDV \nClair3 model: $MODEL_CLAIR"
 else
     echo ""
     echo "Model '${FLAGS_model}' unknown. Supported models -m: 'r9' or 'r10'"

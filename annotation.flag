@@ -9,7 +9,9 @@
 . ~/miniconda3/etc/profile.d/conda.sh
 
 # source shflags
-. /home/euphrasie/bioprog/shflags-1.2.3/shflags
+basesh=`dirname $0`
+pipeshflag=`realpath ${basesh}/shflags/shflags`
+. $pipeshflag
 
 # define command-line string flag
 DEFINE_string 'base' '.' 'output directory' 'w'

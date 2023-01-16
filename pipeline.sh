@@ -34,7 +34,7 @@ GPU=`python -c "$TORCH"`
  
 if [ $GPU = "True" ]
 	then 
-	echo "GPU(s) available, and will be use with Guppy, Dorado, and PMDV"
+	echo "GPU(s) available, and will be use with Dorado, and PMDV"
 else
 	echo "No GPU available"
 fi
@@ -74,61 +74,12 @@ echo ""
 
 echo $FLAGS_threads
 
-## GUPPY
-if [[ "$FLAGS_basecalling" = "guppy" || "$FLAGS_basecalling" = "all" ]]
-then 
-    if [[ $GPU = "True" ]]
-    then
-        echo "GUPPY 6"
-        echo ""
-
-        mkdir $GUPPY
-
-        time guppy_basecaller \
-        -i $FAST5 \
-        -s $GUPPY \
-        --records_per_fastq 0 \
-        -r \
-        -c ${MODEL_GUPPY} \
-        --device 'auto' \
-        --compress_fastq \
-        --num_callers ${FLAGS_threads} \
-        --chunk_size 1000 \
-        --gpu_runners_per_device 4 \
-        --chunks_per_runner 512 \
-        --disable_pings
-
-        cat $GUPPY/pass/* > $FASTQ
-
-    elif [[ $GPU = "False" ]]
-    then
-        echo "GUPPY 6"
-        echo ""
-
-        mkdir $GUPPY
-
-        time guppy_basecaller \
-        -i $FAST5 \
-        -s $GUPPY \
-        --records_per_fastq 0 \
-        -r \
-        -c ${MODEL_GUPPY} \
-        --compress_fastq \
-        --num_callers ${FLAGS_threads} \
-        --disable_pings
-
-        cat $GUPPY/pass/* > $FASTQ
-    fi
-    
-fi
-
-
 fsam_t=$(($FLAGS_threads/4))
 isam_t=$(printf "%.0f" "$fsam_t")
 
 ## DORADO
 
-if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]
+if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${true} ]]
     then
     echo ""
     echo "=========== DORADO MODIFIED BASES ==========="
@@ -136,9 +87,9 @@ if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]
     echo $isam_t
     mkdir ${BASE}/dorado/
 
-    time dorado basecaller -r 4 ${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${MODEL_DORADO_MOD}  | samtools view -bSh -@ isam_t - > $DORADOBAM
+    time dorado basecaller -r 4 ${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${MODEL_DORADO_MOD} -b 256 | samtools view -bSh -@ isam_t - > $DORADOBAM
 
-elif [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" ]] && [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]]
+elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${true} ]]
     then 
     echo ""
     echo "=========== DORADO ==========="
@@ -146,14 +97,14 @@ elif [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" ]] && [[
 
     mkdir ${BASE}/dorado/
 
-    time dorado basecaller -r 4 -b 512 ${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
+    time dorado basecaller -r 4 -b 256 ${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
 
 fi 
 
 
 
 
-if [[ "$FLAGS_basecalling" = "none" ]]
+if [[ $FLAGS_basecalling -eq ${false} ]]
 then 
     echo ""
     echo "=========== no basecalling ==========="
@@ -163,43 +114,24 @@ fi
 
 ##### 2 MAPPING MMI ######
 
-## MMI
-
-if [[ "$FLAGS_basecalling" = "guppy" || "$FLAGS_basecalling" = "all" ]]
-then 
-    echo ""
-    echo "=========== MMI GUPPY============"
-    echo ""
-
-    mkdir $MMI
-
-    time minimap2 -t $FLAGS_threads \
-    -ax map-ont \
-    $REFMMI \
-    --MD \
-    -Y \
-    $FASTQ | samtools sort -@ $isam_t -o $BAM 
-
-    samtools index $BAM
-fi
-
-
 ## 2 MMI DORADO
 
-if [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" || $FLAGS_modified -eq ${FLAGS_TRUE} ]]
+if [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
 then
     echo ""
     echo "=========== MMI DORADO  ============"
     echo ""
-
-    samtools bam2fq $DORADOBAM | $minimap2 -t 10 -ax map-ont --MD $REFMMI - | samtools sort -@ $isam_t -o $DORADOMMI
+    mkdir $MMI
+    
+    samtools bam2fq $DORADOBAM | minimap2 -Y -t 10 -ax map-ont --MD $REFMMI - | samtools sort -@ $isam_t -o $DORADOMMI
 
     samtools index $DORADOMMI
+    BAM=${DORADOMMI}
 fi
 
 ## MMI2
 
-if [[ "$FLAGS_basecalling" = "none" ]]
+if [[ "$FLAGS_basecalling" -eq ${FLAGS_FALSE} ]]
 then 
     echo ""
     echo "=========== MMI  ============"
@@ -228,38 +160,8 @@ fi
 ##### QC ######
 
 
-if [[ "$FLAGS_basecalling" = "guppy" || "$FLAGS_basecalling" = "all" ]]
-then 
-    echo ""
-    echo "=========== QC GUPPY-MMI ==========="
-    echo ""
-
-    pycoQC -f $GUPPY/sequencing_summary.txt -a $BAM -o $BASE/${FLAGS_sample}_QC.html
-
-elif [[ "$FLAGS_basecalling" = "dorado" || "$FLAGS_basecalling" = "all" ]]
-then
-    echo ""
-    echo "=========== QC DORADO-MMI ==========="
-    echo ""
-    echo "coming soon..."
-else
-    echo ""
-    echo "=========== QC MMI ==========="
-    echo ""
-    if [ -d $FASTQSFOLD ]
-    then
-        pycoQC -f $FASTQSFOLD/sequencing_summary.txt -a $BAM -o $BASE/${FLAGS_sample}_QC.html
-    else 
-        pycoQC -f $BASE/sequencing_summary.txt -a $BAM -o $BASE/${FLAGS_sample}_QC.html
-    fi
-fi
-
-
-
 
 ##### VC #####
-
-
 echo ""
 echo "=========== VC ==========="
 echo ""

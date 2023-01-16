@@ -8,8 +8,9 @@
 . ~/miniconda3/etc/profile.d/conda.sh
 
 
-. /media/euphrasie/Alienware_May202/Promethion/promline/annotation.flag
-
+basesh=`dirname $0`
+pipeflag=`realpath ${basesh}/annotation.flag`
+. $pipeflag
 
 
 vepf() 
