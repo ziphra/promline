@@ -123,7 +123,7 @@ then
     echo ""
     mkdir $MMI
     
-    samtools bam2fq $DORADOBAM | minimap2 -Y -t 10 -ax map-ont --MD $REFMMI - | samtools sort -@ $isam_t -o $DORADOMMI
+    samtools bam2fq $DORADOBAM | minimap2 -Y -t 10 -ax map-ont --MD -y $REFMMI - | samtools sort -@ $isam_t -o $DORADOMMI
 
     samtools index $DORADOMMI
     BAM=${DORADOMMI}
@@ -150,7 +150,7 @@ then
     -ax map-ont \
     $REFMMI \
     --MD \
-    -Y \
+    -Y -y \
     $FASTQ | samtools sort -@ $isam_t -o $BAM 
 
     samtools index $BAM

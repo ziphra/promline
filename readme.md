@@ -2,7 +2,6 @@
 
 ## recquirements 
 - a proper installation of miniconda3 (`~/miniconda3`)
-- Guppy 6, see <https://community.nanoporetech.com/> for installation process.
 - [Dorado](https://github.com/nanoporetech/dorado), only if basecalling with Dorado wanted. Dorado should be accessible in the PATH. Model folders should be in the executable same directory.
 - [PEPPER-Margin-DeepVariant]() Docker install, r0.8 or r0.8-gpu if GPU available and if PMDV calling wanted. Otherwise, calling with Clair3 is available trough the conda environment.
 - Docker should run without sudo. To do so: 
@@ -31,7 +30,7 @@
 
 ## run the pipeline
 ```
-USAGE: promline/pipeline.sh [flags] args
+pipeline.sh [flags] args
 flags:
   -w,--base:  working directory (default: '.')
   -s,--sample:  sample name (default: 'JohnDoe')
@@ -40,11 +39,13 @@ flags:
   -p,--pod5:  directory for  fast5 to pod5 conversion output or already containing pod5 (default: '')
   -q,--fastqs:  basecalling directory from guppy, in case of real time basecalling during sequencing. This pipeline will only use pass reads. The sequencing summary should be in this directory. If one fastq file is provided, instead of a guppy basecalling directory, a copy of the sequencing summary should be placed in the base directory (-w)
                 (default: '')
-  -c,--snp_caller:  snp caller: either pmdv, clair3 or all (meaning both) (default: 'clair3')
-  -b,--basecalling:  basecaller: either 'guppy', 'dorado', or 'all' (meaning both) or 'none' (meaning no basecalling, and fastqs are provided in the path defined by -q 
+  -c,--snp_caller:  snp caller: either pmdv, clair3 or all (default: 'clair3')
+  -b,--basecalling:  basecaller: either guppy, dorado all (meaning both) or none (meaning no basecalling, and fastqs are provided in path defined by -q 
                      (default: 'guppy')
+  -M,--[no]modified:  modified bases calling (default: false)
   -m,--model:  flowcell and basecalling model: either r9 or r10 (default: 'r9')
-  -t,--trf:  tandem repeat annotation file for sniffles (default: '')
+  -t,--threads:  max number of threads to use (default: '')
+  -v,--[no]version:  tools versions (default: false)
   -h,--help:  show this help (default: false)
 
 ```
@@ -77,30 +78,7 @@ By providing `-f` and `-p`, the first step of this pipeline would be to convert 
 pod5-convert-from-fast5 $FAST5 pod5/
 ```
 
-### Basecalling `b`
-If asked, basecalling will be performed with `guppy`, `dorado`, or both. 
-If one alignment will be made per basecalling tools, only `guppy` data will be used for variant calling and QC.
-
-#### [`guppy`](https://nanoporetech.com/)
-```
-guppy_basecaller \
-    -i $FAST5 \
-    -s $GUPPY \
-    --records_per_fastq 0 \
-    -r \
-    -c ${MODEL_GUPPY} \
-    --device 'auto' \
-    --compress_fastq \
-    --num_callers $FLAGS_threads \
-    --chunk_size 1000 \
-    --gpu_runners_per_device 4 \
-    --chunks_per_runner 512 \
-    --disable_pings
-    
-cat $GUPPY/pass/* > $FASTQ
-```
-
-#### [`dorado`](https://github.com/nanoporetech/dorado)
+### Basecalling with [`dorado`](https://github.com/nanoporetech/dorado)
 ```
 ${dorado}/bin/dorado basecaller -b 256 ${dorado}/${MODEL_DORADO} pod5/ | samtools view -Sh -@ 6 - > $DORADOBAM
 ```

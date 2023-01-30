@@ -44,7 +44,7 @@ then
     echo ""
     echo ""
     echo "dorado:"
-    /home/euphrasie/bioprog/dorado-0.0.1+4b67720-Linux --version
+    dorado --version
     echo ""
     echo ""
     echo "minimap2:"
