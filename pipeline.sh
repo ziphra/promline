@@ -10,7 +10,6 @@ basesh=`dirname $0`
 pipeconfig=`realpath ${basesh}/pipeline.config`
 . $pipeconfig
 
-
 conda activate promline
 echo ""
 echo "==================== PIPELINE ====================="
@@ -72,22 +71,20 @@ echo "=========== Basecalling for ${FLAGS_sample} ============"
 echo ""
 echo ""
 
-echo $FLAGS_threads
-
 fsam_t=$(($FLAGS_threads/4))
 isam_t=$(printf "%.0f" "$fsam_t")
 
 ## DORADO
 
-if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${true} ]]
+if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
     then
     echo ""
     echo "=========== DORADO MODIFIED BASES ==========="
     echo ""
-    echo $isam_t
-    mkdir ${BASE}/dorado/
-
-    time dorado basecaller -r 4 ${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${MODEL_DORADO_MOD} -b 256 | samtools view -bSh -@ isam_t - > $DORADOBAM
+    mkdir ${BASE}/dorado/                     
+    echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
+    echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD}
+    time dorado basecaller -r 4 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD} | samtools view -bSh -@ isam_t - > $DORADOBAM
 
 elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${true} ]]
     then 
@@ -97,26 +94,25 @@ elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${tru
 
     mkdir ${BASE}/dorado/
 
-    time dorado basecaller -r 4 -b 256 ${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
+    time dorado basecaller -r 4 -b 256 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
 
 fi 
 
 
 
 
-if [[ $FLAGS_basecalling -eq ${false} ]]
+if [[ $FLAGS_basecalling -eq ${FLAGS_FALSE} ]]
 then 
     echo ""
     echo "=========== no basecalling ==========="
     echo ""
 fi
 
-
 ##### 2 MAPPING MMI ######
 
 ## 2 MMI DORADO
 
-if [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
+if [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]] && [[ $FLAGS_alignment -eq ${FLAGS_TRUE} ]]
 then
     echo ""
     echo "=========== MMI DORADO  ============"
@@ -131,7 +127,7 @@ fi
 
 ## MMI2
 
-if [[ "$FLAGS_basecalling" -eq ${FLAGS_FALSE} ]]
+if [[ "$FLAGS_basecalling" -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_alignment -eq ${FLAGS_TRUE} ]]
 then 
     echo ""
     echo "=========== MMI  ============"
@@ -157,7 +153,44 @@ then
 fi
 
 
+if [[ $FLAGS_alignment -eq ${FLAGS_FALSE} ]]
+then 
+    echo ""
+    echo "=========== NO ALIGNMENT  ============"
+    echo ""
+fi
+
+
+if [ -n "$FLAGS_bam" ]
+then
+    BAM=${FLAGS_bam}
+fi
+
 ##### QC ######
+#### SEQUENCING SUMM #####
+
+echo ""
+echo "=========== QC MMI ==========="
+echo ""
+
+if [ -n "$FASTQSFOLD" ]
+then
+    echo $FASTQSFOLD
+    pycoQC -f $FASTQSFOLD/sequencing_summary.txt -a $BAM -o $BASE/${FLAGS_sample}_QC.html
+elif [ -n "${FLAGS_summary}" ]
+then 
+    pycoQC -f $FLAGS_summary -a $BAM -o $BASE/${FLAGS_sample}_QC.html
+else
+    samtools view $DORADOBAM | awk -v OFS='\t' '{print $1, $12}' | sed 's/qs:i://g' > qscore.txt
+    echo -e 'read_id\tmean_qscore_template' | cat - qscore.txt > h_qscore.txt
+    samtools view $DORADOBAM | awk -v OFS='\t' '{print $1, $10}' > read.txt
+    echo -e 'read_id\tread' | cat - read.txt > h_read.txt
+    python `realpath ${basesh}/sequencingsumm.py` $FAST5
+    awk -v OFS='\t' '{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$17,$16}' presequencing_summary.txt > $BASE/sequencing_summary.txt 
+    rm presequencing_summary.txt h_qscore.txt h_read.txt qscore.txt read.txt
+    pycoQC -f $BASE/sequencing_summary.txt -a $BAM -o $BASE/${FLAGS_sample}_QC.html
+fi
+
 
 
 
@@ -339,7 +372,6 @@ then
     echo ""
     echo "SMALL VARIANTS with CLAIR3"
     echo ""
-
     run_clair3.sh \
 	    --bam_fn=${BAM} \
 	    --ref_fn=${REF} \
@@ -356,7 +388,7 @@ then
     #   --vcf_output ${CLAIR_OUT}_merge_output_switch.vcf \
     #   --threads ${FLAGS_threads}
 
-    vtf ${CLAIR_OUT}/merge_output.vcf
+    vtf ${CLAIR_OUT}/merge_output.vcf.gz
 fi
 
 

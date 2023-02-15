@@ -2,8 +2,8 @@
 
 ## recquirements 
 - a proper installation of miniconda3 (`~/miniconda3`)
-- [Dorado](https://github.com/nanoporetech/dorado), only if basecalling with Dorado wanted. Dorado should be accessible in the PATH. Model folders should be in the executable same directory.
-- [PEPPER-Margin-DeepVariant]() Docker install, r0.8 or r0.8-gpu if GPU available and if PMDV calling wanted. Otherwise, calling with Clair3 is available trough the conda environment.
+- [Dorado](https://github.com/nanoporetech/dorado) should be in the PATH. Folders with basecalling models should be in the same directory than the executable.
+- [PEPPER-Margin-DeepVariant](https://github.com/kishwarshafin/pepper) Docker install, r0.8 or r0.8-gpu if GPU available and if PMDV calling wanted. Otherwise, calling with Clair3 is available trough the conda environment.
 - Docker should run without sudo. To do so: 
   ```
   sudo groupadd docker
@@ -22,84 +22,107 @@
     ```
     cd promline
     conda env create -f promline.yml
+    conda activate promline 
+    mv dorado_models ${CONDA_PREFIX}/bin/
     ```
 - Make the script executable:
     ```
-    chmod +x promline.sh
+    chmod +x pipeline.sh
     ``` 
 
 ## run the pipeline
 ```
-pipeline.sh [flags] args
+USAGE: pipeline.sh [flags] args
 flags:
   -w,--base:  working directory (default: '.')
   -s,--sample:  sample name (default: 'JohnDoe')
-  -r,--ref:  reference genome (default: '')
+  -R,--ref:  reference genome (default: '')
   -f,--fast5:  directory containing raw fast5 (default: '')
   -p,--pod5:  directory for  fast5 to pod5 conversion output or already containing pod5 (default: '')
   -q,--fastqs:  basecalling directory from guppy, in case of real time basecalling during sequencing. This pipeline will only use pass reads. The sequencing summary should be in this directory. If one fastq file is provided, instead of a guppy basecalling directory, a copy of the sequencing summary should be placed in the base directory (-w)
                 (default: '')
+  -S,--summary:  path to sequencing_summary.txt generated during real time sequencing. Provide a sequencing_summary.txt if you start the pipeline with a bam
+                 (default: '')
+  -k,--bam:  path to aligned BAM. File has to be indexed. (default: '')
   -c,--snp_caller:  snp caller: either pmdv, clair3 or all (default: 'clair3')
-  -b,--basecalling:  basecaller: either guppy, dorado all (meaning both) or none (meaning no basecalling, and fastqs are provided in path defined by -q 
-                     (default: 'guppy')
+  -B,--[no]basecalling:  basecalling (default: false)
   -M,--[no]modified:  modified bases calling (default: false)
-  -m,--model:  flowcell and basecalling model: either r9 or r10 (default: 'r9')
+  -A,--[no]alignment:  alignment (default: false)
+  -r,--flowcell:  flowcell and basecalling model: either r9 or r10 (default: 'r9')
+  -b,--bps:  bases called per second (default: '260')
+  -a,--acc:  basecalling accuracy (default: 'sup')
   -t,--threads:  max number of threads to use (default: '')
   -v,--[no]version:  tools versions (default: false)
   -h,--help:  show this help (default: false)
 
+
 ```
 
-Run as, if executable: 
+Run as: 
 ```
-promline.sh -w ./workingdirectory \
+pipeline.sh -w ./workingdirectory \
     -s samplename \
-    -r ref.fa \
+    -R ref.fa \
     -f fast5 \
     -p pod5 \
-    -c all \
-    -b all \
-    -m r9 \
-    -t human_GRCh38_no_alt_analysis_set.trf.bed 2>&1 | tee log.txt
+    -M \
+    --bps 260 \
+    --acc fast
+    -B \
+    -A \
+    -c clair3 \
+    -r r10 \
+    -t 32 2>&1 | tee log.txt
 ```
 
 `2>&1 | tee log.txt` allow to store the pipeline log to `log.txt`.
 
-Some tools are using GPUs when available.
+Some tools will use GPUs when available.
 
-or as `bash promline.sh ...`.
+
 ## Promline
 
 ### Conversion to pod5 `-f -p`
-pod5 is the last file format for storing nanopore sequencing data. It takes less space tahn fast5 and improves read/write performance.
-By providing `-f` and `-p`, the first step of this pipeline would be to convert fast5 to pod5.
+pod5 is the last file format for storing nanopore sequencing data. It takes less space than fast5 and improves read/write performance.
+By providing `-f` and `-p`, the first step of this pipeline is to convert fast5 to pod5, if the pod5 folder doesn't exist yet or if it is empty.
 
 ```
 pod5-convert-from-fast5 $FAST5 pod5/
 ```
 
-### Basecalling with [`dorado`](https://github.com/nanoporetech/dorado)
+### basecalling with [`dorado`](https://github.com/nanoporetech/dorado)
 ```
-${dorado}/bin/dorado basecaller -b 256 ${dorado}/${MODEL_DORADO} pod5/ | samtools view -Sh -@ 6 - > $DORADOBAM
+dorado basecaller -r 4 -b 256 ${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
 ```
 
 ### alignment 
 [`minimap2`](https://github.com/lh3/minimap2)
 
 ```
-minimap2 -t $FLAGS_threads \
-    -ax map-ont \
-    $REFMMI \
-    --MD \
-    -Y \
-    $FASTQ | samtools sort -o $BAM 
+samtools bam2fq $DORADOBAM | minimap2 -Y \
+-t 10 \
+-ax map-ont \
+--MD \
+-Y \
+-y \
+$REFMMI - | \
+samtools sort -@ $isam_t -o $DORADOMMI
+
+samtools index $DORADOMMI 
 ```
+
+Fastqs can be provided (with `-q`), if the basecalling was done in real time on the sequencer for example. 
 
 ### QC 
-[`pycoQC`](https://github.com/a-slide/pycoQC)
+[`pycoQC`](https://github.com/a-slide/pycoQC)   
+If fastqs are provided, the pipeline will look into the fastqs directory for a sequencing summary to do a quality check.
+
+A sequencing summary can be provided with `-S` if one was generated from real time basecalling on the sequencer.
+
+Otherwise, the pipeline will try to reconstitute one.
 
 ```
-pycoQC -f $GUPPY/sequencing_summary.txt -a $BAM -o output.html
+pycoQC -f sequencing_summary.txt -a $BAM -o output.html
 ```
 
 ### Structural variants calling
@@ -119,7 +142,7 @@ sniffles -i $BAM \
 
 the `tandem-repeats` file is a tandem repeat annotations file that can be used by `Sniffles` to improve variant calling in repetitive regions. This file can be found [here](https://github.com/fritzsedlazeck/Sniffles/tree/master/annotations) and is also in this directory.
 
-After calling, BND variants will be duplicate to their BND mates, so both breakpoints can be represented and egally annotated in following steps.
+After SV calling, BND variants will be duplicate to create lines in the VCF with their BND mates coordinates, so both breakpoints can be represented and egally annotated in following steps.
 
 ### Small variants calling
 Small variants calling can either be done with `Clair3`, the caller recommended by nanopore, or with PEPPER-Margin-DeepVariant, or both.
@@ -135,7 +158,7 @@ run_clair3.sh \
 	    --output=${CLAIR_OUT} \
 	    --remove_intermediate_dir
 ```
-The following module "takes a Clair3 VCF and a Sniffle2 VCF as inputs. It switches the zygosity from homozygous to heterozygous of a Clair3 called SNP that matches the following two criteria: 1) AF<=0.7, and 2) the flanking 16bp of the SNP is inside one or more SV deletions given in the Sniffle2 VCF." Not working.
+The following module "takes a Clair3 VCF and a Sniffle2 VCF as inputs. It switches the zygosity from homozygous to heterozygous of a Clair3 called SNP that matches the following two criteria: 1) AF<=0.7, and 2) the flanking 16bp of the SNP is inside one or more SV deletions given in the Sniffle2 VCF." Not working yet.
 
 ```
 pypy3 /home/euphrasie/miniconda3/envs/promline/bin/clair3.py SwitchZygosityBasedOnSVCalls \
