@@ -79,10 +79,22 @@ pipeline.sh -w ./workingdirectory \
 
 Some tools will use GPUs when available.
 
+## Output
+- dorado
+  - unaligned bam file
+- mmi
+  - aligned bam file and its index
+- vc
+  - clair3
+    - merge_output.vcf.gz
+  - sniffles
+    - sniffles_BND.vcf
+    - noQC_snifles.vcf
+- QC.html
 
-## Promline
 
-### Conversion to pod5 `-f -p`
+## Promline's steps
+### 1. Conversion to pod5 `-f -p`
 pod5 is the last file format for storing nanopore sequencing data. It takes less space than fast5 and improves read/write performance.
 By providing `-f` and `-p`, the first step of this pipeline is to convert fast5 to pod5, if the pod5 folder doesn't exist yet or if it is empty.
 
@@ -90,12 +102,12 @@ By providing `-f` and `-p`, the first step of this pipeline is to convert fast5 
 pod5-convert-from-fast5 $FAST5 pod5/
 ```
 
-### basecalling with [`dorado`](https://github.com/nanoporetech/dorado)
+### 2. basecalling with [`dorado`](https://github.com/nanoporetech/dorado)
 ```
 dorado basecaller -r 4 -b 256 ${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
 ```
 
-### alignment 
+### 3. alignment 
 [`minimap2`](https://github.com/lh3/minimap2)
 
 ```
@@ -113,11 +125,11 @@ samtools index $DORADOMMI
 
 Fastqs can be provided (with `-q`), if the basecalling was done in real time on the sequencer for example. 
 
-### QC 
+### 4. QC 
 [`pycoQC`](https://github.com/a-slide/pycoQC)   
 If fastqs are provided, the pipeline will look into the fastqs directory for a sequencing summary to do a quality check.
 
-A sequencing summary can be provided with `-S` if one was generated from real time basecalling on the sequencer.
+A sequencing summary can also be provided with `-S`.
 
 Otherwise, the pipeline will try to reconstitute one.
 
@@ -125,7 +137,7 @@ Otherwise, the pipeline will try to reconstitute one.
 pycoQC -f sequencing_summary.txt -a $BAM -o output.html
 ```
 
-### Structural variants calling
+### 5. Structural variants calling
 [`Sniffles`](https://github.com/fritzsedlazeck/Sniffles) is the structural variant caller recommended by nanopore.
 Sniffles will be run twice, with and without the quality filtering of variants.
 
@@ -137,14 +149,13 @@ sniffles -i $BAM \
     --long-del-coverage 5 \
     --long-dup-coverage 0.5 \
 	-t $FLAGS_threads 
-    --no-qc
 ```
 
 the `tandem-repeats` file is a tandem repeat annotations file that can be used by `Sniffles` to improve variant calling in repetitive regions. This file can be found [here](https://github.com/fritzsedlazeck/Sniffles/tree/master/annotations) and is also in this directory.
 
 After SV calling, BND variants will be duplicate to create lines in the VCF with their BND mates coordinates, so both breakpoints can be represented and egally annotated in following steps.
 
-### Small variants calling
+### 6. Small variants calling
 Small variants calling can either be done with `Clair3`, the caller recommended by nanopore, or with PEPPER-Margin-DeepVariant, or both.
 
 #### [`Clair3`](https://github.com/HKU-BAL/Clair3)
