@@ -76,17 +76,31 @@ isam_t=$(printf "%.0f" "$fsam_t")
 
 ## DORADO
 
-if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
-    then
-    echo ""
-    echo "=========== DORADO MODIFIED BASES ==========="
-    echo ""
-    mkdir ${BASE}/dorado/                     
-    echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
-    echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD}
-    time dorado basecaller -r 4 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD} | samtools view -bSh -@ isam_t - > $DORADOBAM
+# if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
+#     then
+#     echo ""
+#     echo "=========== DORADO MODIFIED BASES ==========="
+#     echo ""
+#     mkdir ${BASE}/dorado/                     
+#     echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
+#     echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD}
+#     time dorado basecaller -r 4 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD} | samtools view -bSh -@ isam_t - > $DORADOBAM
 
-elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${true} ]]
+# elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${true} ]]
+#     then 
+#     echo ""
+#     echo "=========== DORADO ==========="
+#     echo ""
+
+#     mkdir ${BASE}/dorado/
+
+#     time dorado basecaller -r 4 -b 256 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
+
+# fi 
+
+
+
+if [[ $FLAGS_basecalling -eq ${true} ]] && [[ $FLAGS_duplex -eq ${FLAGS_FALSE} ]] 
     then 
     echo ""
     echo "=========== DORADO ==========="
@@ -99,6 +113,36 @@ elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${tru
 fi 
 
 
+
+
+
+
+if [[ $FLAGS_duplex -eq ${FLAGS_TRUE} ]] 
+        then
+        echo ""
+        echo "=========== DORADO DUPLEX ==========="
+        echo ""
+        mkdir ${BASE}/dorado/ 
+        mkdir ${BASE}/dorado/duplex                    
+        echo ${CONDA_PREFIX}/bin/dorado_models/dna_r10.4.1_e8.2_${FLAGS_bps}bps_fast@v4.0.0
+        echo $FLAGS_pod5/
+        time dorado basecaller ${CONDA_PREFIX}/bin/dorado_models/dna_r10.4.1_e8.2_${FLAGS_bps}bps_fast@v4.0.0 $FLAGS_pod5/ --emit-moves | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
+        samtools index ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
+        
+        time duplex_tools pair --output_dir ${BASE}/dorado/duplex/pairs_from_bam ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
+
+        time duplex_tools split_pairs ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam $FLAGS_pod5/ ${BASE}/dorado/duplex/pod5s_splitduplex/
+        
+        cat ${BASE}/dorado/duplex/pod5s_splitduplex/*_pair_ids.txt > ${BASE}/dorado/duplex/split_duplex_pair_ids.txt
+        
+        time dorado duplex ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --pairs ${BASE}/dorado/duplex/pairs_from_bam/pair_ids_filtered.txt | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/duplex_orig.bam
+        samtools index ${BASE}/dorado/duplex/duplex_orig.bam
+        
+        time dorado duplex ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} ${BASE}/dorado/duplex/pod5s_splitduplex/ --pairs ${BASE}/dorado/duplex/split_duplex_pair_ids.txt | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/duplex_splitduplex.bam
+        samtools index ${BASE}/dorado/duplex/duplex_splitduplex.bam
+
+        samtools cat ${BASE}/dorado/duplex/duplex_orig.bam ${BASE}/dorado/duplex/duplex_splitduplex.bam -@ $isam_t -o  $DORADOBAM
+fi
 
 
 if [[ $FLAGS_basecalling -eq ${FLAGS_FALSE} ]]
@@ -175,6 +219,7 @@ echo ""
 
 if [ -n "$FASTQSFOLD" ]
 then
+    echo "fastqfold"
     echo $FASTQSFOLD
     pycoQC -f $FASTQSFOLD/sequencing_summary.txt -a $BAM -o $BASE/${FLAGS_sample}_QC.html
 elif [ -n "${FLAGS_summary}" ]

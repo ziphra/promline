@@ -28,8 +28,9 @@ DEFINE_boolean 'basecalling' false 'basecalling' 'B'
 DEFINE_boolean 'modified' false 'modified bases calling' 'M'
 DEFINE_boolean 'alignment' false 'alignment' 'A'
 DEFINE_string 'flowcell' 'r9' 'flowcell and basecalling model: either r9 or r10' 'r'
-DEFINE_string 'bps' '260' 'bases called per second' 'b'
+DEFINE_string 'bps' '400' 'bases called per second' 'b'
 DEFINE_string 'acc' 'sup' 'basecalling accuracy' 'a'
+DEFINE_boolean 'duplex' false 'duplex basecalling' 'd'
 DEFINE_string 'threads' '' 'max number of threads to use' 't'
 DEFINE_boolean 'version' false 'tools versions' 'v'
 
@@ -123,6 +124,13 @@ then
     echo "Fastqs provided"
 fi
 
+if [[ -n $FLAGS_duplex ]] 
+then 
+    echo "" 
+    echo "Duplex basecalling"
+    FLAGS_basecalling=${FLAGS_TRUE} 
+
+fi
 
 # model flowcell
 
@@ -131,7 +139,7 @@ then
     MODEL_CLAIR="r941_prom_sup_g5014"
     MODEL_PMDV="--ont_r9_guppy5_sup"
     MODEL_DORADO="dna_r9.4.1_e8_${FLAGS_acc}*"
-    MODEL_DORADO_MOD=`ls ${CONDA_PREFIX}/bin/dorado_models/ | grep -E ^dna_r9.4.1_e8_${FLAGS_acc}@.*v0$`
+    #MODEL_DORADO_MOD=`ls ${CONDA_PREFIX}/bin/dorado_models/ | grep -E ^dna_r9.4.1_e8_${FLAGS_acc}@.*v0$`
     echo ""
     echo -e "\ndorado model: $MODEL_DORADO \nPMDV model: $MODEL_PMDV \nClair3 model: $MODEL_CLAIR"
 elif [[ "$FLAGS_flowcell" = "r10" ]]
@@ -139,7 +147,7 @@ then
     MODEL_CLAIR="r1041_e82_400bps_fast_g632"
     MODEL_PMDV="--ont_r10_q20"
     MODEL_DORADO=`ls ${CONDA_PREFIX}/bin/dorado_models/ | grep -E ^dna_r10.4.1_e8.2_${FLAGS_bps}bps_${FLAGS_acc}@v4.0.0$`
-    MODEL_DORADO_MOD=`ls ${CONDA_PREFIX}/bin/dorado_models/ | grep -E ^dna_r10.4.1_e8.2_${FLAGS_bps}bps_${FLAGS_acc}@.*v2$`
+    #MODEL_DORADO_MOD=`ls ${CONDA_PREFIX}/bin/dorado_models/ | grep -E ^dna_r10.4.1_e8.2_${FLAGS_bps}bps_${FLAGS_acc}@.*v2$`
     echo ""
     echo -e "\ndorado model: $MODEL_DORADO \nPMDV model: $MODEL_PMDV \nClair3 model: $MODEL_CLAIR"
 else
