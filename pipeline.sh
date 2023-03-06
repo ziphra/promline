@@ -76,15 +76,16 @@ isam_t=$(printf "%.0f" "$fsam_t")
 
 ## DORADO
 
-# if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
-#     then
-#     echo ""
-#     echo "=========== DORADO MODIFIED BASES ==========="
-#     echo ""
-#     mkdir ${BASE}/dorado/                     
-#     echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
-#     echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD}
-#     time dorado basecaller -r 4 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD} | samtools view -bSh -@ isam_t - > $DORADOBAM
+ if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
+     then
+     echo ""
+     echo "=========== DORADO MODIFIED BASES ==========="
+     echo ""
+     mkdir ${BASE}/dorado/                     
+     echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
+     echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD}
+     time dorado basecaller -r 4 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD} | samtools view -bSh -@ isam_t - > $DORADOBAM
+fi
 
 # elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${true} ]]
 #     then 
@@ -100,7 +101,7 @@ isam_t=$(printf "%.0f" "$fsam_t")
 
 
 
-if [[ $FLAGS_basecalling -eq ${true} ]] && [[ $FLAGS_duplex -eq ${FLAGS_FALSE} ]] 
+if [[ $FLAGS_basecalling -eq ${true} ]] && [[ $FLAGS_duplex -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]]
     then 
     echo ""
     echo "=========== DORADO ==========="
@@ -126,22 +127,26 @@ if [[ $FLAGS_duplex -eq ${FLAGS_TRUE} ]]
         mkdir ${BASE}/dorado/duplex                    
         echo ${CONDA_PREFIX}/bin/dorado_models/dna_r10.4.1_e8.2_${FLAGS_bps}bps_fast@v4.0.0
         echo $FLAGS_pod5/
-        time dorado basecaller ${CONDA_PREFIX}/bin/dorado_models/dna_r10.4.1_e8.2_${FLAGS_bps}bps_fast@v4.0.0 $FLAGS_pod5/ --emit-moves | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
+        # simplex basecall with dorado
+        time dorado basecaller ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --emit-moves | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
         samtools index ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
         
+        # find duplex pairs 
         time duplex_tools pair --output_dir ${BASE}/dorado/duplex/pairs_from_bam ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
 
+        #find addditional duplex in non split reads
         time duplex_tools split_pairs ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam $FLAGS_pod5/ ${BASE}/dorado/duplex/pod5s_splitduplex/
         
         cat ${BASE}/dorado/duplex/pod5s_splitduplex/*_pair_ids.txt > ${BASE}/dorado/duplex/split_duplex_pair_ids.txt
         
+        #stereo dupelx all
         time dorado duplex ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --pairs ${BASE}/dorado/duplex/pairs_from_bam/pair_ids_filtered.txt | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/duplex_orig.bam
         samtools index ${BASE}/dorado/duplex/duplex_orig.bam
         
         time dorado duplex ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} ${BASE}/dorado/duplex/pod5s_splitduplex/ --pairs ${BASE}/dorado/duplex/split_duplex_pair_ids.txt | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/duplex_splitduplex.bam
         samtools index ${BASE}/dorado/duplex/duplex_splitduplex.bam
 
-        samtools cat ${BASE}/dorado/duplex/duplex_orig.bam ${BASE}/dorado/duplex/duplex_splitduplex.bam -@ $isam_t -o  $DORADOBAM
+        samtools cat ${BASE}/dorado/duplex/duplex_orig.bam ${BASE}/dorado/duplex/duplex_splitduplex.bam ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam -@ $isam_t -o $DORADOBAM
 fi
 
 
