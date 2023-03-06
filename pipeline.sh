@@ -53,7 +53,7 @@ echo ""
 echo "=========== FAST5 to POD5 ============"
 echo ""
     echo -e "$FLAGS_pod5 is empty or doesn't exist: converting fast5 to pod5."
-    pod5-convert-from-fast5 `find $FAST5 -name "*.fast5"` $FLAGS_pod5
+    pod5-convert-from-fast5 -p $FLAGS_threads `find $FAST5 -name "*.fast5"` $FLAGS_pod5
 else
     echo ""
     echo ""
