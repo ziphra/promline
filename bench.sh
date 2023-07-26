@@ -1,4 +1,4 @@
-. ./promline/bench.config
+. /home/eservant/bioprog/promline/bench.config
 
 
 mkdir $BENCH
@@ -10,15 +10,14 @@ samtools depth $EXBAM -Q 5 | awk -v OFS='\t' '$3>30 {print $1,$2-1,$2,$3}' | sor
 # filter 30X and bad GT
 bcftools filter -i 'FORMAT/DP>30 & FORMAT/GT!="mis" & FORMAT/GT!="0/0"' $EXVCF -o 30X_${EXOME}.vcf.gz -Oz
 
-
 #liftover 30X.bed 19 to 38
-/home/euphrasie/bioprog/liftover/liftOver 30X_${EXOME}.bed /home/euphrasie/bioprog/liftover/chains/hg19ToHg38.over.chain.gz 38_30X_${EXOME}.bed unMapped30X_38to19.bed
+/home/eservant/bioprog/liftover/liftOver 30X_${EXOME}.bed /home/eservant/bioprog/liftover/chains/hg19ToHg38.over.chain.gz 38_30X_${EXOME}.bed unMapped30X_38to19.bed
 
 #liftovervcf
-/home/euphrasie/bioprog/gatk-4.2.6.1/gatk LiftoverVcf \
+/home/eservant/bioprog/gatk-4.4.0.0/gatk LiftoverVcf \
     -I 30X_${EXOME}.vcf.gz \
     -O 38_30X_${EXOME}.vcf.gz \
-    -CHAIN /home/euphrasie/bioprog/liftover/chains/hg19ToHg38.over.chain.gz \
+    -CHAIN /home/eservant/bioprog/liftover/chains/hg19ToHg38.over.chain.gz \
     --REJECT rejected_variants30X_38to19.vcf \
     -R ${HGREF} \
     --CREATE_INDEX true \
@@ -27,7 +26,7 @@ bcftools filter -i 'FORMAT/DP>30 & FORMAT/GT!="mis" & FORMAT/GT!="0/0"' $EXVCF -
 
 # filter promethion VCF with regions in merged AND in gencode CDS
 #gencode
-bcftools filter $VCFPROM -R /media/euphrasie/Alienware_May202/Annotations/gencode/v40/hg38/gencode-v40.basic.annotation.CDS.lvl1-2-3.sortU.pad75.merged.bed -o temp_gencodeFilt.vcf.gz -Oz
+bcftools filter $VCFPROM -R /home/eservant/bioprog/Annotations/hg38/gencode-v41.basic.annotation.CDS.lvl1-2-3.sortU.pad75.merged.bed  -e'FILTER="LowQual"' -o temp_gencodeFilt.vcf.gz -Oz
 tabix temp_gencodeFilt.vcf.gz
 #30X bed
 bcftools filter temp_gencodeFilt.vcf.gz -R 38_30X_${EXOME}.bed -o ExFiltered_${SAMPLE}.vcf.gz -Oz
@@ -47,12 +46,12 @@ docker run -it \
 -v "${OUTPUT_DIR}":"${OUTPUT_DIR}" \
 -v "${HGREF}":"${HGREF}" \
 -v "${BED}":"${BED}" \
--v "/media/euphrasie/DATA/reference_genome/hg38_exclusion/":"/media/euphrasie/DATA/reference_genome/hg38_exclusion/" \
+-v "/media/eservant/HDD_12To_31/ref/hg38_exclusion/":"/media/eservant/HDD_12To_31/ref/hg38_exclusion/" \
 jmcdani20/hap.py:v0.3.12 /opt/hap.py/bin/hap.py \
 "${TRUTH}" \
 "${VCF}" \
 -r "${HGREF}" \
--o "${OUTPUT_DIR}/happy" \
+-o "${OUTPUT_DIR}/happy_${SAMPLE}" \
 -f "${BED}" \
 --pass-only \
 --engine=xcmp \

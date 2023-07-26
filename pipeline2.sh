@@ -75,7 +75,7 @@ fsam_t=$(($FLAGS_threads/4))
 isam_t=$(printf "%.0f" "$fsam_t")
 
 ## DORADO
-
+## v03 simplex, mod bases 
  if [[ $FLAGS_modified -eq ${FLAGS_TRUE} ]]  && [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]]
      then
      echo ""
@@ -84,23 +84,10 @@ isam_t=$(printf "%.0f" "$fsam_t")
      mkdir ${BASE}/dorado/                     
      echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
      echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD}
-     time dorado basecaller -r 4 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases-models ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD} | samtools view -bSh -@ isam_t - > $DORADOBAM
+     time dorado basecaller ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases 5mCG_5hmCG -r  > ${DORADOBAM}
 fi
 
-# elif [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_basecalling -eq ${true} ]]
-#     then 
-#     echo ""
-#     echo "=========== DORADO ==========="
-#     echo ""
-
-#     mkdir ${BASE}/dorado/
-
-#     time dorado basecaller -r 4 -b 256 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
-
-# fi 
-
-
-
+## v03 simplex
 if [[ $FLAGS_basecalling -eq ${true} ]] && [[ $FLAGS_duplex -eq ${FLAGS_FALSE} ]] && [[ $FLAGS_modified -eq ${FLAGS_FALSE} ]]
     then 
     echo ""
@@ -108,45 +95,26 @@ if [[ $FLAGS_basecalling -eq ${true} ]] && [[ $FLAGS_duplex -eq ${FLAGS_FALSE} ]
     echo ""
 
     mkdir ${BASE}/dorado/
-
-    time dorado basecaller -r 4 -b 256 ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ | samtools view -bSh -@ $isam_t - > $DORADOBAM
+    # simplex
+    echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
+    time dorado basecaller ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ -r > ${DORADOBAM}
 
 fi 
 
 
 
-
-
-
+## v03 duplex
 if [[ $FLAGS_duplex -eq ${FLAGS_TRUE} ]] 
-        then
-        echo ""
-        echo "=========== DORADO DUPLEX ==========="
-        echo ""
-        mkdir ${BASE}/dorado/ 
-        mkdir ${BASE}/dorado/duplex                    
-        echo ${CONDA_PREFIX}/bin/dorado_models/dna_r10.4.1_e8.2_${FLAGS_bps}bps_fast@v4.0.0
-        echo $FLAGS_pod5/
-        # simplex basecall with dorado
-        time dorado basecaller ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --emit-moves | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
-        samtools index ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
-        
-        # find duplex pairs 
-        time duplex_tools pair --output_dir ${BASE}/dorado/duplex/pairs_from_bam ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam
+    then
+    echo ""
+    echo "=========== DORADO DUPLEX ==========="
+    echo ""
+    mkdir ${BASE}/dorado/
+    echo $FLAGS_pod5/
+    echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
+    echo ${MODEL_DORADO}
+    dorado duplex ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} ${FLAGS_pod5} -r -t $FLAGS_threads > ${DORADOBAM}
 
-        #find addditional duplex in non split reads
-        time duplex_tools split_pairs ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam $FLAGS_pod5/ ${BASE}/dorado/duplex/pod5s_splitduplex/
-        
-        cat ${BASE}/dorado/duplex/pod5s_splitduplex/*_pair_ids.txt > ${BASE}/dorado/duplex/split_duplex_pair_ids.txt
-        
-        #stereo dupelx all
-        time dorado duplex ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --pairs ${BASE}/dorado/duplex/pairs_from_bam/pair_ids_filtered.txt | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/duplex_orig.bam
-        samtools index ${BASE}/dorado/duplex/duplex_orig.bam
-        
-        time dorado duplex ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} ${BASE}/dorado/duplex/pod5s_splitduplex/ --pairs ${BASE}/dorado/duplex/split_duplex_pair_ids.txt | samtools sort -@ $isam_t -o  ${BASE}/dorado/duplex/duplex_splitduplex.bam
-        samtools index ${BASE}/dorado/duplex/duplex_splitduplex.bam
-
-        samtools cat ${BASE}/dorado/duplex/duplex_orig.bam ${BASE}/dorado/duplex/duplex_splitduplex.bam ${BASE}/dorado/duplex/unmapped_reads_with_moves.bam -@ $isam_t -o $DORADOBAM
 fi
 
 
@@ -157,22 +125,9 @@ then
     echo ""
 fi
 
+dorado summary $DORADOBAM
+
 ##### 2 MAPPING MMI ######
-
-## 2 MMI DORADO
-
-if [[ $FLAGS_basecalling -eq ${FLAGS_TRUE} ]] && [[ $FLAGS_alignment -eq ${FLAGS_TRUE} ]]
-then
-    echo ""
-    echo "=========== MMI DORADO  ============"
-    echo ""
-    mkdir $MMI
-    
-    samtools bam2fq $DORADOBAM | minimap2 -Y -t 20 -ax map-ont --MD -y $REFMMI - | samtools sort -@ 10 -o $DORADOMMI
-
-    samtools index $DORADOMMI
-    BAM=${DORADOMMI}
-fi
 
 ## MMI2
 
@@ -231,13 +186,6 @@ elif [ -n "${FLAGS_summary}" ]
 then 
     pycoQC -f $FLAGS_summary -a $BAM -o $BASE/${FLAGS_sample}_QC.html
 else
-    samtools view $DORADOBAM | awk -v OFS='\t' '{print $1, $12}' | sed 's/qs:i://g' > qscore.txt
-    echo -e 'read_id\tmean_qscore_template' | cat - qscore.txt > h_qscore.txt
-    samtools view $DORADOBAM | awk -v OFS='\t' '{print $1, $10}' > read.txt
-    echo -e 'read_id\tread' | cat - read.txt > h_read.txt
-    python `realpath ${basesh}/sequencingsumm.py` $FAST5
-    awk -v OFS='\t' '{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$17,$16}' presequencing_summary.txt > $BASE/sequencing_summary.txt 
-    rm presequencing_summary.txt h_qscore.txt h_read.txt qscore.txt read.txt
     pycoQC -f $BASE/sequencing_summary.txt -a $BAM -o $BASE/${FLAGS_sample}_QC.html
 fi
 
@@ -246,7 +194,7 @@ fi
 
 ##### VC #####
 echo ""
-echo "=========== VC ==========="
+echo "=========== SV calling ==========="
 echo ""
 
 
@@ -413,6 +361,8 @@ then
 fi
 
 ### clair3 ###
+# conda deactivate 
+# conda activate clair3
 
 if [[ "$FLAGS_snp_caller" = "clair3" || "$FLAGS_snp_caller" = "all" ]]
 then 
@@ -422,26 +372,80 @@ then
     echo ""
     echo "SMALL VARIANTS with CLAIR3"
     echo ""
-    run_clair3.sh \
-	    --bam_fn=${BAM} \
-	    --ref_fn=${REF} \
-	    --threads=${FLAGS_threads} \
-	    --platform="ont" \
-	    --model_path=${CONDA_PREFIX}/bin/models/${MODEL_CLAIR} \
-	    --output=${CLAIR_OUT} \
-	    --remove_intermediate_dir
 
-    # python /home/euphrasie/miniconda3/envs/promline/bin/clair3.py SwitchZygosityBasedOnSVCalls \
-    #   --bam_fn ${BAM} \
-    #   --clair3_vcf_input ${CLAIR_OUT}/merge_output.vcf.gz \
-    #   --sv_vcf_input $VCF_SNF \
-    #   --vcf_output ${CLAIR_OUT}_merge_output_switch.vcf \
-    #   --threads ${FLAGS_threads}
+    INPUT_DIR="[YOUR_INPUT_FOLDER]"        # e.g. /home/user1/input (absolute path needed)
+    OUTPUT_DIR="[YOUR_OUTPUT_FOLDER]"      # e.g. /home/user1/output (absolute path needed)
+    THREADS="[MAXIMUM_THREADS]"            # e.g. 8
+    MODEL_NAME="[YOUR_MODEL_NAME]"         # e.g. r941_prom_hac_g360+g422
+
+    docker run -it \
+        -v ${REF}:${REF} \
+        -v ${CLAIR_OUT}:${CLAIR_OUT} \
+        -v ${BAM}:${BAM} \
+        hkubal/clair3:v1.0.4 \
+        /opt/bin/run_clair3.sh \
+        --bam_fn=${INPUT_DIR}/input.bam \
+        --ref_fn=${REF} \
+        --threads=${THREADS} \
+        --platform="ont" \
+        --model_path="/opt/models/${MODEL_NAME}" \
+        --output=${CLAIR_OUT} \
+        --enable_phasing \
+        --use_whatshap_for_final_output_haplotagging
 
     vtf ${CLAIR_OUT}/merge_output.vcf.gz
-fi
+ fi
+
+conda deactivate
 
 
+#### CNV ####
+### cnvpytor ###
+
+conda activate cnvpytor
+
+#read depth information from bam 
+cnvpytor -root file.pytor -j $THREADS -rd $BAM
+
+
+# root object
+cnvpytor -root file.pytor -j $THREADS -his 1000 5000
+
+#partition
+cnvpytor -root file.pytor -j $THREADS -partition 1000 5000
+
+#call
+cnvpytor -root file.pytor -j $THREADS -call 1000 > calls.1000.tsv
+cnvpytor -root file.pytor -j $THREADS -call 5000 > calls.5000.tsv
+
+
+#import SNP from vcf 
+cnvpytor -root file.pytor -j $THREADS -snp ${CLAIR_OUT}/merge_output.vcf.gz -sample $SAMPLE 
+cnvpytor -root file.pytor -j $THREADS -baf 1000 5000
+
+
+# interactive mode 
+echo "interactive mode..."
+cnvpytor -root file.pytor -view 1000 <<ENDL
+set Q0_range -1 0.5
+set p_range 0 0.0001
+set p_N 0 0.5
+set size_range 50000 inf
+set print_filename cnvpytor_1000.xlsx
+set annotate
+print calls
+ENDL
+
+echo "interactive mode..."
+cnvpytor -root file.pytor -view 5000 <<ENDL
+set Q0_range -1 0.5
+set p_range 0 0.0001
+set p_N 0 0.5
+set size_range 50000 inf
+set print_filename cnvpytor_5000.xlsx
+set annotate
+print calls
+ENDL
 
 echo ""
 echo ""

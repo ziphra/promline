@@ -3,7 +3,6 @@
 ## recquirements 
 - a proper installation of miniconda3 (`~/miniconda3`)
 - [Dorado](https://github.com/nanoporetech/dorado) should be in the PATH.
-- [PEPPER-Margin-DeepVariant](https://github.com/kishwarshafin/pepper) Docker install, r0.8 or r0.8-gpu if GPU available and if PMDV calling wanted. Otherwise, calling with Clair3 is available trough the conda environment.
 - Docker should run without sudo. To do so: 
   ```
   sudo groupadd docker
