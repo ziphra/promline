@@ -83,7 +83,6 @@ isam_t=$(printf "%.0f" "$fsam_t")
      echo ""
      mkdir ${BASE}/dorado/                     
      echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO}
-     echo ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO_MOD}
      time dorado basecaller ${CONDA_PREFIX}/bin/dorado_models/${MODEL_DORADO} $FLAGS_pod5/ --modified-bases 5mCG_5hmCG -r  > ${DORADOBAM}
 fi
 

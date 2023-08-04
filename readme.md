@@ -91,6 +91,9 @@ A folder structured as follow:
   - sniffles
     - sniffles_BND.vcf
     - noQC_snifles.vcf
+  - cnvpytor
+    - sample500.xlsx
+    - sample1000.xlsx
 - QC.html
 - sequencing_summary.txt
 
@@ -123,5 +126,5 @@ The recommended structural variant caller is Sniffles, which will be run twice, 
 Small variants calling can be done using either Clair3, the caller recommended by nanopore, or PEPPER-Margin-DeepVariant, or both.
 
 ### 7. CNV 
-CNV calling is performed using cnvpytor.
+CNV calling is performed using cnvpytor with txo different bin size: 500 and 1000.
 
