@@ -125,7 +125,7 @@ then
     echo ""
 fi
 
-dorado summary $DORADOBAM
+dorado summary $DORADOBAM > ${BASE}/sequencing_summary.txt
 
 ##### 2 MAPPING MMI ######
 
@@ -164,6 +164,23 @@ then
     echo ""
 fi
 
+
+
+if [[ $FLAGS_alignment -eq ${FLAGS_TRUE} ]]
+then 
+    mkdir $MMI
+    echo ""
+    echo "=========== MMI  ============"
+    echo ""
+    echo $REFMMI
+    time samtools fastq -T MM,ML $DORADOBAM | minimap2 -t $FLAGS_threads \
+    -ax map-ont \
+    $REFMMI \
+    --MD \
+    -Y -y - | samtools sort -@ $isam_t -o $BAM 
+
+    samtools index $BAM
+fi
 
 if [ -n "$FLAGS_bam" ]
 then
@@ -370,25 +387,24 @@ then
     ### CLAIR3 ###
     echo ""
     echo ""
-    echo "SMALL VARIANTS with CLAIR3"
+    echo "SMALL VARIANTS with CLAIR3 AND PHASING"
     echo ""
 
-    INPUT_DIR="[YOUR_INPUT_FOLDER]"        # e.g. /home/user1/input (absolute path needed)
-    OUTPUT_DIR="[YOUR_OUTPUT_FOLDER]"      # e.g. /home/user1/output (absolute path needed)
-    THREADS="[MAXIMUM_THREADS]"            # e.g. 8
-    MODEL_NAME="[YOUR_MODEL_NAME]"         # e.g. r941_prom_hac_g360+g422
+    BAMDIR=`dirname $BAM`
+    REFDIR=`dirname $REF`
 
     docker run -it \
-        -v ${REF}:${REF} \
+        -v ${REFDIR}:${REFDIR} \
         -v ${CLAIR_OUT}:${CLAIR_OUT} \
-        -v ${BAM}:${BAM} \
+        -v ${BAMDIR}:${BAMDIR} \
+        -v ${CONDA_PREFIX}/bin/clair3_models/${MODEL_CLAIR}:${CONDA_PREFIX}/bin/clair3_models/${MODEL_CLAIR} \
         hkubal/clair3:v1.0.4 \
         /opt/bin/run_clair3.sh \
-        --bam_fn=${INPUT_DIR}/input.bam \
+        --bam_fn=${BAM} \
         --ref_fn=${REF} \
-        --threads=${THREADS} \
+        --threads=$FLAGS_threads \
         --platform="ont" \
-        --model_path="/opt/models/${MODEL_NAME}" \
+        --model_path="${CONDA_PREFIX}/bin/clair3_models/$MODEL_CLAIR" \
         --output=${CLAIR_OUT} \
         --enable_phasing \
         --use_whatshap_for_final_output_haplotagging
@@ -404,45 +420,47 @@ conda deactivate
 
 conda activate cnvpytor
 
+mkdir $BASE/vc/cnvpytor/
+
 #read depth information from bam 
-cnvpytor -root file.pytor -j $THREADS -rd $BAM
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -j $FLAGS_threads -rd $BAM
 
 
 # root object
-cnvpytor -root file.pytor -j $THREADS -his 1000 5000
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -j $FLAGS_threads -his 1000 5000
 
 #partition
-cnvpytor -root file.pytor -j $THREADS -partition 1000 5000
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -j $FLAGS_threads -partition 1000 5000
 
 #call
-cnvpytor -root file.pytor -j $THREADS -call 1000 > calls.1000.tsv
-cnvpytor -root file.pytor -j $THREADS -call 5000 > calls.5000.tsv
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -j $FLAGS_threads -call 1000 > $BASE/vc/cnvpytor/calls.1000.tsv
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -j $FLAGS_threads -call 5000 > $BASE/vc/cnvpytor/calls.5000.tsv
 
 
 #import SNP from vcf 
-cnvpytor -root file.pytor -j $THREADS -snp ${CLAIR_OUT}/merge_output.vcf.gz -sample $SAMPLE 
-cnvpytor -root file.pytor -j $THREADS -baf 1000 5000
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -j $FLAGS_threads -snp ${CLAIR_OUT}/merge_output.vcf.gz -sample SAMPLE 
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -j $FLAGS_threads -baf 1000 5000
 
 
 # interactive mode 
 echo "interactive mode..."
-cnvpytor -root file.pytor -view 1000 <<ENDL
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -view 1000 <<ENDL
 set Q0_range -1 0.5
 set p_range 0 0.0001
 set p_N 0 0.5
 set size_range 50000 inf
-set print_filename cnvpytor_1000.xlsx
+set print_filename $BASE/vc/cnvpytor/cnvpytor_1000.xlsx
 set annotate
 print calls
 ENDL
 
 echo "interactive mode..."
-cnvpytor -root file.pytor -view 5000 <<ENDL
+cnvpytor -root $BASE/vc/cnvpytor/file.pytor -view 5000 <<ENDL
 set Q0_range -1 0.5
 set p_range 0 0.0001
 set p_N 0 0.5
 set size_range 50000 inf
-set print_filename cnvpytor_5000.xlsx
+set print_filename $BASE/vc/cnvpytor/cnvpytor_5000.xlsx
 set annotate
 print calls
 ENDL
